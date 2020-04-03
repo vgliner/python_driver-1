@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="Logo1">
+    <file>jnj_vision_logo_rgb.png</file>
+  </qresource>
+</RCC>

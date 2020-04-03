@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="Pushbutton">
+    <file>Button-Play-icon.png</file>
+  </qresource>
+</RCC>
