@@ -34,7 +34,10 @@ class RobotController:
         self.IP= None
         self.port= None
         self.BUFFER_SIZE = 512  # bytes
-        self.TIMEOUT = 0.0       # seconds
+        self.TIMEOUT = 1000000      # seconds
+        self.last_Robot_response = None
+        self.last_Robot_pos = None
+
         
     def isInError(self):
         """Status method that checks whether the Mecademic Robot is in error mode.
@@ -53,11 +56,11 @@ class RobotController:
 
     def receive_str(self):
         try:
-            byte_data = self.socket.recv(self.BUFFER_SIZE)
+            byte_data  = self.socket.recv(self.BUFFER_SIZE)
             if byte_data == b'':
                 raise RuntimeError("Robot connection broken")
             return byte_data.decode('ascii')     
-        except:
+        except self.socket.timeout:
             print('Exception caught')
             return ""
 
@@ -68,8 +71,7 @@ class RobotController:
         self.IP=IP
         self.port=port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.
-        self.socket.settimeout(self.TIMEOUT)
+        # self.socket.settimeout(self.TIMEOUT)
         sys.stdout.flush()
         self.socket.connect((self.IP, self.port))
 
@@ -84,7 +86,14 @@ class RobotController:
         while robot_answer == "":
             robot_answer = self.receive_str()
         print(f'Received: {robot_answer}')
+        self.last_Robot_response= robot_answer
+        if '[2027]' in self.last_Robot_response:
+            a=self.last_Robot_response.find('[2027]')
+            b= self.last_Robot_response[a+7:-2]
+            c=b.split(',')
+            self.last_Robot_pos=[float(c1) for c1 in c]
         return 'Received: '+ robot_answer
+
         sys.stdout.flush()    
 
 
