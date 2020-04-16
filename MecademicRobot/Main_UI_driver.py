@@ -1,5 +1,6 @@
 # %gui qt
 import sys
+import PyQt5
 from PyQt5.QtWidgets import QDialog, QApplication, QTabWidget, QTableWidgetItem, QLabel, QGraphicsPixmapItem,QWidget, QSizePolicy
 from PyQt5.QtCore import pyqtSlot,QThread, QObject, pyqtSignal,QSize, QTimer
 from PyQt5.QtGui import *
@@ -113,7 +114,11 @@ class AppWindow(QDialog):
         self.Robot_instance = None
         self.start_button_toggle_time = int(round(time.time() * 1000))
         self.show()
-        
+        # Video Stream button
+        self.pushButton_19.toggled.connect(self.on_pushButton_19_clicked)  # Turn on video stream
+
+
+
     @pyqtSlot()
     def on_dial_valueChanged(self):
         self.US_power=self.dial.value()/10
@@ -210,6 +215,15 @@ class AppWindow(QDialog):
     def on_pushButton_18_clicked(self):  ###  Move g- button ###
         if self.Robot_instance is not None:   
             self.Robot_instance.send_str('MoveLinRelTRF(0, 0, 0, 0, 0, -1)')
+
+    @pyqtSlot()
+    def on_pushButton_19_clicked(self):  ###  # Toggle video stream ###
+        if self.pushButton.isChecked():  # Video stream is on
+            pass
+        else:  # Video stream is off
+            pass
+
+
 
     @pyqtSlot()
     def on_pushButton_2_clicked(self):  ###  Home button ###
