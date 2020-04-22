@@ -28,7 +28,10 @@ from matplotlib.figure import Figure
 import threading
 from My_Robot_Engine import *
 import time
-
+import Video_stream_FLIR
+import pyspin as PySpin
+from pyueye import ueye
+import cv2
 ##########
 import playsound
 from gtts import gTTS
@@ -106,6 +109,7 @@ class AppWindow(QDialog):
         self.pushButton_16.toggled.connect(self.on_pushButton_16_clicked)  # Move b-
         self.pushButton_17.toggled.connect(self.on_pushButton_17_clicked)  # Move g+
         self.pushButton_18.toggled.connect(self.on_pushButton_18_clicked)  # Move g-
+        self.pushButton_19.toggled.connect(self.on_pushButton_19_clicked)  # Start video stream button
 
         self.checkBox_10.stateChanged.connect(self.on_checkBox_10_valueChanged)      #Brakes release
         self.checkBox_11.stateChanged.connect(self.on_checkBox_11_valueChanged)      #Partial brakes release
@@ -113,10 +117,13 @@ class AppWindow(QDialog):
         self.is_running = False 
         self.Robot_instance = None
         self.start_button_toggle_time = int(round(time.time() * 1000))
-        self.show()
-        # Video Stream button
-        self.pushButton_19.toggled.connect(self.on_pushButton_19_clicked)  # Turn on video stream
+        self.video_button_toggle_time = int(round(time.time() * 1000))
+        # Video
+        self.cam_list=None
+        self.num_cameras=None
 
+
+        self.show()
 
 
     @pyqtSlot()
@@ -216,13 +223,159 @@ class AppWindow(QDialog):
         if self.Robot_instance is not None:   
             self.Robot_instance.send_str('MoveLinRelTRF(0, 0, 0, 0, 0, -1)')
 
+
+    def Real_camera_stream(self, camera_ID):
+        hCam1 = ueye.HIDS(camera_ID)             #0: first available camera;  1-254: The camera with the specified camera ID
+        sInfo = ueye.SENSORINFO()
+        cInfo = ueye.CAMINFO()
+        pcImageMemory = ueye.c_mem_p()        
+        MemID = ueye.int()
+        rectAOI = ueye.IS_RECT()
+        pitch = ueye.INT()
+        nBitsPerPixel = ueye.INT(24)    #24: bits per pixel for color mode; take 8 bits per pixel for monochrome
+        channels = 3                    #3: channels for color mode(RGB); take 1 channel for monochrome
+        m_nColorMode = ueye.INT()		# Y8/RGB16/RGB24/REG32
+        bytes_per_pixel = int(nBitsPerPixel / 8)
+        nRet1 = ueye.is_InitCamera(hCam1, None)
+        if nRet1 != ueye.IS_SUCCESS:
+            print(f'is_InitCamera ERROR. ID: {camera_ID}')
+        else:
+            print(f'Camera {camera_ID} : SUCCESS')
+        # Reads out the data hard-coded in the non-volatile camera memory and writes it to the data structure that cInfo points to
+        nRet1 = ueye.is_GetCameraInfo(hCam1, cInfo)
+        if nRet1 != ueye.IS_SUCCESS:
+            print("is_GetCameraInfo ERROR")
+        # You can query additional information about the sensor type used in the camera
+        nRet1 = ueye.is_GetSensorInfo(hCam1, sInfo)
+        if nRet1 != ueye.IS_SUCCESS:
+            print("is_GetSensorInfo ERROR")
+        # nRet1 = ueye.is_ResetToDefault( hCam1)
+        # if nRet1 != ueye.IS_SUCCESS:
+        #     print("is_ResetToDefault ERROR")
+        # Set display mode to DIB
+        nRet1 = ueye.is_SetDisplayMode(hCam1, ueye.IS_SET_DM_DIB)
+        # Set the right color mode
+        if int.from_bytes(sInfo.nColorMode.value, byteorder='big') == ueye.IS_COLORMODE_BAYER:
+            # setup the color depth to the current windows setting
+            ueye.is_GetColorDepth(hCam1, nBitsPerPixel, m_nColorMode)
+            bytes_per_pixel = int(nBitsPerPixel / 8)
+            print("IS_COLORMODE_BAYER: ", )
+            print("\tm_nColorMode: \t\t", m_nColorMode)
+            print("\tnBitsPerPixel: \t\t", nBitsPerPixel)
+            print("\tbytes_per_pixel: \t\t", bytes_per_pixel)
+            print()
+        elif int.from_bytes(sInfo.nColorMode.value, byteorder='big') == ueye.IS_COLORMODE_CBYCRY:
+            # for color camera models use RGB32 mode
+            m_nColorMode = ueye.IS_CM_BGRA8_PACKED
+            nBitsPerPixel = ueye.INT(32)
+            bytes_per_pixel = int(nBitsPerPixel / 8)
+            print("IS_COLORMODE_CBYCRY: ", )
+            print("\tm_nColorMode: \t\t", m_nColorMode)
+            print("\tnBitsPerPixel: \t\t", nBitsPerPixel)
+            print("\tbytes_per_pixel: \t\t", bytes_per_pixel)
+            print()
+
+        elif int.from_bytes(sInfo.nColorMode.value, byteorder='big') == ueye.IS_COLORMODE_MONOCHROME:
+            # for color camera models use RGB32 mode
+            m_nColorMode = ueye.IS_CM_MONO8
+            nBitsPerPixel = ueye.INT(8)
+            bytes_per_pixel = int(nBitsPerPixel / 8)
+            print("IS_COLORMODE_MONOCHROME: ", )
+            print("\tm_nColorMode: \t\t", m_nColorMode)
+            print("\tnBitsPerPixel: \t\t", nBitsPerPixel)
+            print("\tbytes_per_pixel: \t\t", bytes_per_pixel)
+            print()
+
+        else:
+            # for monochrome camera models use Y8 mode
+            m_nColorMode = ueye.IS_CM_MONO8
+            nBitsPerPixel = ueye.INT(8)
+            bytes_per_pixel = int(nBitsPerPixel / 8)
+            print("else")
+
+        # Can be used to set the size and position of an "area of interest"(AOI) within an image
+        nRet1 = ueye.is_AOI(hCam1, ueye.IS_AOI_IMAGE_GET_AOI, rectAOI, ueye.sizeof(rectAOI))
+        if nRet1 != ueye.IS_SUCCESS:
+            print("is_AOI ERROR")
+
+        width = rectAOI.s32Width
+        height = rectAOI.s32Height
+
+        # Prints out some information about the camera and the sensor
+        print("Camera model:\t\t", sInfo.strSensorName.decode('utf-8'))
+        print("Camera serial no.:\t", cInfo.SerNo.decode('utf-8'))
+        print("Maximum image width:\t", width)
+        print("Maximum image height:\t", height)
+        print()
+        # Allocates an image memory for an image having its dimensions defined by width and height and its color depth defined by nBitsPerPixel
+        nRet1 = ueye.is_AllocImageMem(hCam1, width, height, nBitsPerPixel, pcImageMemory, MemID)
+        if nRet1 != ueye.IS_SUCCESS:
+            print("is_AllocImageMem ERROR")
+        else:
+            # Makes the specified image memory the active memory
+            nRet = ueye.is_SetImageMem(hCam1, pcImageMemory, MemID)
+            if nRet != ueye.IS_SUCCESS:
+                print("is_SetImageMem ERROR")
+            else:
+                # Set the desired color mode
+                nRet = ueye.is_SetColorMode(hCam1, m_nColorMode)
+            if nRet1 != ueye.IS_SUCCESS:
+                print("is_AllocImageMem ERROR")
+            else:
+                # Makes the specified image memory the active memory
+                nRet = ueye.is_SetImageMem(hCam1, pcImageMemory, MemID)
+        nRet = ueye.is_CaptureVideo(hCam1, ueye.IS_DONT_WAIT)
+        nRet = ueye.is_InquireImageMem(hCam1, pcImageMemory, MemID, width, height, nBitsPerPixel, pitch)
+        _reference_image=0
+        while(self.pushButton_19.isChecked()):    
+            array = ueye.get_data(pcImageMemory, width, height, nBitsPerPixel, pitch, copy=False)          
+            frame = np.reshape(array,(height.value, width.value, bytes_per_pixel))
+            image= frame    
+            rgbImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)            
+            h, w= grayImage.shape
+            ch=3
+            bytesPerLine = ch * w
+            convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)     
+            if camera_ID==1:                
+                self.label_11.setPixmap(QPixmap.fromImage(convertToQtFormat))                      
+            else:
+                self.label_14.setPixmap(QPixmap.fromImage(convertToQtFormat))                                                                    
+            time.sleep(0.05)
+
+
     @pyqtSlot()
     def on_pushButton_19_clicked(self):  ###  # Toggle video stream ###
-        if self.pushButton.isChecked():  # Video stream is on
-            pass
-        else:  # Video stream is off
-            pass
+        QApplication.processEvents() 
+        if int(round(time.time() * 1000))- self.video_button_toggle_time <5000:
+            return
+        self.video_button_toggle_time= int(round(time.time() * 1000)) 
+        t1= threading.Thread(target=self.Real_camera_stream,args=[1])        
+        t1.start()
+        time.sleep(0.1) 
 
+
+
+        # t1= threading.Thread(target=self.Real_camera_stream,args=[2])        
+        # t1.start()
+        # time.sleep(0.1)                   
+
+
+
+        
+        # print('Push button 19 activated ')    
+        # if self.pushButton_19.isChecked():  # Video stream is on
+        #     try:
+        #         self.t1= threading.Thread(target=Video_stream_FLIR.Multiple_cameras_acquisition_thread,args=[self.label_14,self.label_11])        
+        #         self.t1.start()
+        #         # Video_stream_FLIR.Multiple_cameras_acquisition_thread()      
+        #         # QThread.msleep(1000)
+        #         print('Debug end')
+        #     except:
+        #         print('Exception thrown')
+          
+        # else:  # Video stream is off
+        #     self.t1.isAlive=False
 
 
     @pyqtSlot()

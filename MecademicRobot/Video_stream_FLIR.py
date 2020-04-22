@@ -1,7 +1,22 @@
 import os
 import pyspin as PySpin
+from threading import Timer,Thread,Event
+import time
+import PyQt5
+from PyQt5.QtWidgets import QDialog, QApplication, QTabWidget, QTableWidgetItem, QLabel, QGraphicsPixmapItem,QWidget, QSizePolicy
+from PyQt5.QtCore import pyqtSlot,QThread, QObject, pyqtSignal,QSize, QTimer
+from PyQt5.QtGui import *
+from PyQt5 import QtGui
+from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.uic import loadUi
+from PyQt5 import QtTest
+
+
 
 NUM_IMAGES = 10  # number of images to grab
+
+def Timer_func():
+    print('Timer activated')
 
 def acquire_images(cam_list):
     """
@@ -247,7 +262,7 @@ def run_multiple_cameras(cam_list):
 
     return result
 
-def Multiple_cameras_acquisition_thread():
+def Multiple_cameras_acquisition_thread(label1, label2):
     system = PySpin.System.GetInstance()
     cam_list = system.GetCameras()
     num_cameras = cam_list.GetSize()
@@ -259,17 +274,48 @@ def Multiple_cameras_acquisition_thread():
         # Release system instance
         system.ReleaseInstance()
         print('Not enough cameras!')
-        return False
-    result = run_multiple_cameras_modified(cam_list)
-
+    for i, cam in enumerate(cam_list):
+        # Initialize camera
+        cam.Init()        
+    for i, cam in enumerate(cam_list):
+        # Set acquisition mode to continuous
+        node_acquisition_mode = PySpin.CEnumerationPtr(cam.GetNodeMap().GetNode('AcquisitionMode'))
+        if not PySpin.IsAvailable(node_acquisition_mode) or not PySpin.IsWritable(node_acquisition_mode):
+            print('Unable to set acquisition mode to continuous (node retrieval; camera %d). Aborting... \n' % i)
+            return False
+        node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName('Continuous')
+        if not PySpin.IsAvailable(node_acquisition_mode_continuous) or not PySpin.IsReadable(
+                node_acquisition_mode_continuous):
+            print('Unable to set acquisition mode to continuous (entry \'continuous\' retrieval %d). \
+            Aborting... \n' % i)
+            return False
+        acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
+        node_acquisition_mode.SetIntValue(acquisition_mode_continuous)
+        print('Camera %d acquisition mode set to continuous...' % i)
+        # Begin acquiring images
+        cam.BeginAcquisition()    
+        
+    while True:        
+        for i, cam in enumerate(cam_list):
+            image_result = cam.GetNextImage()
+            h= image_result.GetHeight()
+            w = image_result.GetWidth()
+            convertToQtFormat = QtGui.QImage(image_result.GetData(), w, h, QtGui.QImage.Format_Grayscale8) 
+            if i==0:                
+                label1.setPixmap(QPixmap.fromImage(convertToQtFormat))                      
+            else:
+                label2.setPixmap(QPixmap.fromImage(convertToQtFormat))  
+        time.sleep(0.001)
 
 def run_multiple_cameras_modified(cam_list):
+    print('6')
     result = True
     for i, cam in enumerate(cam_list):
+        print('7')
         # Retrieve TL device nodemap
         nodemap_tldevice = cam.GetTLDeviceNodeMap()
         # Print device information
-        result &= print_device_info(nodemap_tldevice, i)    
+        # result &= print_device_info(nodemap_tldevice, i)    
         for i, cam in enumerate(cam_list):
             # Initialize camera
             cam.Init()
