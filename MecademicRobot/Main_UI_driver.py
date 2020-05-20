@@ -332,16 +332,53 @@ class AppWindow(QDialog):
             frame = np.reshape(array,(height.value, width.value, bytes_per_pixel))
             image= frame    
             rgbImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)            
+            grayImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            if self.checkBox.isChecked():
+                spin_box_value= self.spinBox_2.value()
+                if spin_box_value==0:  # Weak Gaussian
+                    FilteredImage=cv2.GaussianBlur(grayImage,(3,3),0) 
+                    grayImage=FilteredImage      
+                if spin_box_value==1:  # Weak Gaussian + Canny Edge detection
+                    FilteredImage=cv2.GaussianBlur(grayImage,(3,3),0) 
+                    grayImage=cv2.Canny(FilteredImage,100,200)    
+                if spin_box_value==2:  # Strong Gaussian + Canny Edge detection
+                    # FilteredImage=cv2.GaussianBlur(grayImage,(11,11),0) 
+                    grayImage=cv2.Canny(grayImage,100,200)  
+                if spin_box_value==3:  # Weak Gaussian + Laplacian Edge detection
+                    FilteredImage=cv2.GaussianBlur(grayImage,(3,3),0) 
+                    grayImage=cv2.Laplacian(FilteredImage,ddepth=cv2.CV_16U)         
+                if spin_box_value==4:  # Weak Gaussian + Sobel Edge detection
+                    FilteredImage=cv2.GaussianBlur(grayImage,(3,3),0) 
+                    grayImage=cv2.Sobel(FilteredImage,ddepth=cv2.CV_16U,dx=1,dy=1, ksize=3)
+                if spin_box_value==5:  # Weak Gaussian + Scharr Edge detection
+                    FilteredImage=cv2.GaussianBlur(grayImage,(3,3),0) 
+                    grayImage=cv2.Scharr(FilteredImage,ddepth=cv2.CV_16U)    
+                if spin_box_value==6:  # Weak Gaussian + Laplacian Edge detection
+                    grayImage=cv2.Laplacian(grayImage)   
+                if spin_box_value==7:  # Weak Gaussian + Laplacian Edge detection
+                    grayImage=cv2.Laplacian(grayImage,cv2.CV_64F)                                                                                                
+                # grayImage=cv2.Laplacian(FilteredImage,cv2.CV_64F)
             h, w= grayImage.shape
             ch=3
             bytesPerLine = ch * w
-            convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)     
+            convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888) 
+            convertToQtFormatGrey = QtGui.QImage(grayImage.data, w, h, w, QtGui.QImage.Format_Grayscale8)     
+
             if camera_ID==1:                
-                self.label_11.setPixmap(QPixmap.fromImage(convertToQtFormat))                      
+                self.label_11.setPixmap(QPixmap.fromImage(convertToQtFormat))
+                if  self.checkBox_2.isChecked():
+                    self.label_14.setPixmap(QPixmap.fromImage(convertToQtFormatGrey))                      
             else:
-                self.label_14.setPixmap(QPixmap.fromImage(convertToQtFormat))                                                                    
-            time.sleep(0.05)
+                self.label_14.setPixmap(QPixmap.fromImage(convertToQtFormat)) 
+                if  self.checkBox_3.isChecked():
+                    self.label_11.setPixmap(QPixmap.fromImage(convertToQtFormatGrey))                    
+            laplacian_var=cv2.Laplacian(grayImage,cv2.CV_64F).var()
+            if camera_ID==1:                     
+                self.label_16.setText(str(laplacian_var)) 
+            else:
+                self.label_18.setText(str(laplacian_var)) 
+
+            time.sleep(0.08)
 
 
     @pyqtSlot()
@@ -353,12 +390,9 @@ class AppWindow(QDialog):
         t1= threading.Thread(target=self.Real_camera_stream,args=[1])        
         t1.start()
         time.sleep(0.1) 
-
-
-
-        # t1= threading.Thread(target=self.Real_camera_stream,args=[2])        
-        # t1.start()
-        # time.sleep(0.1)                   
+        t2= threading.Thread(target=self.Real_camera_stream,args=[0])        
+        t2.start()
+        time.sleep(0.1)                   
 
 
 
