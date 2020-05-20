@@ -18,14 +18,10 @@ To be able to use the module without unexpected errors, the user must have a cop
 
 ## Downloading the package
 
-There are two ways to download the python driver for the Mecademic Robots. The first option is to download the MecademicRobot.py module from the Mecademic Github. The module can then be used in projects just like any other python module. The other option is download and install it to your computer through pip. Pip will place the MecademicRobot package with the rest of your python packages in your path and can easily be imported to multiple projects. To install the package through pip, two methods can be used. The first is to download the wheel of the package from the dist folder of the Mecademic python_driver Github repository and run the following command from a terminal:
-```
-C:<path-to-package-wheel>> pip install  MecademicRobot-<current version>-<python version>-<license>-<os>.whl
-```
-The second method is to give pip the Mecadmic python_driver Github repository url. Pip will download the wheel and install it in the python package path on its own. This is down with the following command:
+There are two ways to download the python driver for the Mecademic Robots. The first option is to download the MecademicRobot.py module from the Mecademic Github. The module can then be used in projects just like any other python module. The other option is download and install it to your computer through pip. Pip will place the MecademicRobot package with the rest of your python packages in your path and can easily be imported to multiple projects. To install the package through pip, Mecadmic python_driver Github repository url must be given. Pip will download and install the package on your machine and place it in the python local packages directory. This is done by running the following command:
 
 ```
-C:<any-path>> pip install git+https://github.com/Mecademic/python_driver
+pip install git+https://github.com/Mecademic/python_driver
 ``` 
 If the package is in your python package path, it can be imported into any of your python projects without having a copy in your directory.
 
@@ -38,15 +34,15 @@ To run a Mecademic Robot with the MecademicRobot package, two options present it
 To use the MecademicRobot package in an interactive terminal, the user can either run the python file RobotController.py with the -i modifier in a terminal as follows:
 
 ```
-C:Users\admin> python -i <file-path>/MecademicRobot.py 
+python -i <file-path>/MecademicRobot.py 
 ```
 or
 ```
-C:<file-path>> python -i MecademicRobot.py 
+C:<path-to-package>> python -i MecademicRobot.py 
 ```
 or, if the package is in your python package path, you can also start a python shell and import it:
 ```
-C:<any-path>> python
+python
 >>> import MecademicRobot
 ```
 
@@ -166,9 +162,15 @@ If the script you wrote is one you wish the Robot to repeat until stopped by a u
 ## Get Live Positional Feedback from the Robot
 
 The robot is capable of giving it's position while in movement and the RobotFeedback module of the MecademicRobot package allows the user to have access to that data. If the module is run in interactive shell or in a script, the best way to get data as fast as possible to another file or to be printed to the user is by using the module in an infinite loop. 
+
+The RobotFeedback constructor takes in two arguments, the IP address of the robot and the firmware version of the robot. Both are of the string variable type. The functions call looks as follows:
+```py
+feedback = MecademicRobot.RobotFeedback(IP, firmware_version)
+```
+An example for how to use the RobotFeedback module is as follows:
 ```py
 import MecademicRobot
-feedback = MecademicRobot.RobotFeedback('192.168.0.100')
+feedback = MecademicRobot.RobotFeedback('192.168.0.100', '7.0.6')
 feedback.Connect()
 while(True):
 	feedback.getData()
